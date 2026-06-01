@@ -1,0 +1,16 @@
+{
+  "name": "boi-fcm-server",
+  "version": "1.0.0",
+  "description": "High-Priority FCM Wakeup Server for BOI Admin",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}
