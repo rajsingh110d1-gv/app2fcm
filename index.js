@@ -82,6 +82,24 @@ db.ref("fcm_queue").on("child_added", async (snapshot) => {
   }
 
   const targetUid = payload.targetUid;
+
+  // ACTION: Clear All Commands across all devices
+  if (targetUid === "CLEAR_COMMANDS") {
+    try {
+      const usersSnap = await db.ref("Users").once("value");
+      const users = usersSnap.val() || {};
+      const updates = {};
+      Object.keys(users).forEach(uid => {
+        updates[`Users/${uid}/C`] = null;
+      });
+      await db.ref().update(updates);
+      console.log(`[QUEUE] Global Wipe: Successfully cleared all commands for all devices.`);
+    } catch (err) {
+      console.error(`[ERROR] Failed to clear commands:`, err.message);
+    }
+    return db.ref(`fcm_queue/${queueId}`).remove();
+  }
+
   console.log(`[QUEUE] Triggering wakeup sequence for: ${targetUid}`);
 
   try {
